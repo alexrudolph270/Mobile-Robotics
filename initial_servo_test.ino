@@ -3,14 +3,25 @@
 #include "seeed_pwm.h"
 
 int Ping(int pingPin);
-const int pingPin = 10;
-const int pingPin = 10;
-const int pingPin = 10;
-const int pingPin = 10;
+void Pan(int pos);
+void Scan();
+
+const int pingPin = A0;
+const int buttonPin = SCL;
+// const int photoPin = TBD;
+const int servoPin = 2;
 
 Servo myservo;
 
-int pos = 0;
+int button_state;
+int pos = 90;
+
+long left_encoder_count = 0;
+long right_encoder_count = 0;
+int left_dirn = 1;
+int right_dirn = 1;
+
+int cm_left, cm_front, cm_right;
 
 int Ping(int pingPin)
 {
@@ -29,21 +40,41 @@ int Ping(int pingPin)
   return cm;
 }
 
-void setup() {
+void Pan(int pos)
+{
+  myservo.write(pos);
+}
+
+void setup() 
+{
+  MOTOR.init();
+  pinMode(buttonPin, INPUT);
+  pinMode(servoPin, OUTPUT);
   myservo.attach(2);
+
+  Serial.begin(9600);
 }
 
 void loop()
 {
-    pos = 0;
-    myservo.write(pos);
+    Pan(90); //front
     delay(1000);
+    cm_front = Ping(pingPin);
+    Serial.print(cm_front);
+    Serial.println(" cm(front)");
+    delay(100);
 
-    pos = 90;
-    myservo.write(pos);
+    Pan(0); //left
     delay(1000);
-
-    pos = 180;
-    myservo.write(pos);
+    cm_left = Ping(pingPin);
+    Serial.print(cm_left);
+    Serial.println(" cm(left)");
+    delay(100);
+    
+    Pan(180); //right
     delay(1000);
+    cm_right = Ping(pingPin);
+    Serial.print(cm_right);
+    Serial.println(" cm(right)");
+    delay(100);
 }
