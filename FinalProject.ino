@@ -1,6 +1,6 @@
 #include <motordriver_4wd.h>
 #include <seeed_pwm.h>
-#include <ChainableLED.h>
+// #include <ChainableLED.h>
 #include <Wire.h>
 #include <time.h>
 
@@ -12,15 +12,14 @@ const double PIE2   = PIE*2.0;
 
 //-------- LED variables
 
-#define NUM_LEDS  1
-ChainableLED leds(A0, A1, NUM_LEDS);
+// #define NUM_LEDS  1
+// ChainableLED leds(SCL, SDA, NUM_LEDS);
 
 //-------- motor control
 
 void TurnLeft90();
 void TurnRight90();
 void Straight( int speed, int dirn );
-void Wander();
 
 //-------- bumper
 const int buttonPin = 11;
@@ -69,17 +68,19 @@ float obj_x, obj_y;
 int row, col;
 
 //-------- incline state
-enum {LEFT, RIGHT} incline_state;
+enum {ILEFT, IRIGHT} incline_state;
 
 //======================================================================================
 // setup
 //======================================================================================
 void setup()
 {
-    leds.init();
+    // leds.init();
     MOTOR.init();
 
     Wire.begin();
+
+    digitalWrite(A0, INPUT_PULLUP);
 
     attachInterrupt(0, LeftEncoder, CHANGE);
     attachInterrupt(1, RightEncoder, CHANGE);
@@ -88,10 +89,10 @@ void setup()
         
     // go straight
     Straight( 10, 1 ); 
-    leds.setColorRGB(0, 0, 100, 0);  // green
+    // leds.setColorRGB(0, 0, 100, 0);  // green
     state = WANDER;
     wander_state = FWD;
-    incline_state = LEFT;
+    incline_state = ILEFT;
        
     Serial.begin(9600);
 }
@@ -185,6 +186,7 @@ void loop()
 
   if (state == WANDER)
   {
+    Serial.println("WANDER");
     //---- try to reach goal cell
     Wander();
 
@@ -194,9 +196,6 @@ void loop()
       //---- stop
       Straight( 0, 0 );    
       delay(100);
-
-      //---- update state
-      state = RETURN;
 
       //---- print ogrid
       Serial.print("----- OCCUPANCY GRID -----");
@@ -208,23 +207,29 @@ void loop()
         }
         Serial.println();
       }
-      delay(5000);
+      delay(3000);
 
-      //---- flash to display goal reached
-      for (int i = 0; i < 5; i++)
-      {
-        leds.setColorRGB(0, 100, 0, 0);  // red
-        delay(1000);
-        leds.setColorRGB(0, 0, 100, 0);  // green
-        delay(1000);
-        leds.setColorRGB(0, 0, 0, 100);  // blue
-        delay(1000);
-      } 
+//      //---- flash to display goal reached
+//      for (int i = 0; i < 5; i++)
+//      {
+//        leds.setColorRGB(0, 100, 0, 0);  // red
+//        delay(1000);
+//        leds.setColorRGB(0, 0, 100, 0);  // green
+//        delay(1000);
+//        leds.setColorRGB(0, 0, 0, 100);  // blue
+//        delay(1000);
+//      }
+
+      //---- update state
+      state = RETURN;
+      wander_state = REV;
     }
   }
-  else
-  if (state == RETURN)
+  else if (state == RETURN)
   {
+    Serial.println("RETURN");
+    Serial.println(wander_state);
+    
     //---- try to reach goal cell
     Wander();
 
@@ -237,27 +242,28 @@ void loop()
 
       //---- update state
       state = INCLINE;
+      incline_state == ILEFT;
     }
   }
-  else
-  if (state == INCLINE)
+  else if (state == INCLINE)
   {
-    int val = 0; //alex's photodiode read
+    Serial.println("INCLINE");
+    int val = analogRead(A0);
+    Serial.print("Light: "); Serial.println(val);
     if (val > 100)
     {
-      if (state == LEFT)
+      if (incline_state == ILEFT)
       {
         MOTOR.setSpeedDir1(16, DIRF);
         MOTOR.setSpeedDir2(8, DIRR);
-        state = RIGHT;
+        incline_state = IRIGHT;
         delay(1000);
       }
-      else
-      if (state == RIGHT)
+      else if (incline_state == IRIGHT)
       {
         MOTOR.setSpeedDir1(8, DIRF);
         MOTOR.setSpeedDir2(16, DIRR);
-        state = LEFT;
+        incline_state = ILEFT;
         delay(1000);      
       }
     }
@@ -271,12 +277,13 @@ void Wander()
 {
   if ((wander_state == FWD) && button_state == 1)
   {
+    if (state == RETURN) Serial.println("FWD Button");
     //---- stop
     Straight( 0, 0 );    
     delay(100);
 
     //---- back up
-    leds.setColorRGB(0, 100, 0, 0);  // red
+    // leds.setColorRGB(0, 100, 0, 0);  // red
     Straight( 10, -1 );    
     delay(100);
 
@@ -287,12 +294,13 @@ void Wander()
   }
   else if ((wander_state == FWD) && (x >= RIGHT || x <= LEFT || y >= TOP || y <= BOTTOM))
   {
+    if (state == RETURN) Serial.println("FWD wander");
     //---- stop
     Straight( 0, 0 );    
     delay(100);
 
     //---- back up
-    leds.setColorRGB(0, 100, 0, 0);  // red
+    // leds.setColorRGB(0, 100, 0, 0);  // red
     Straight( 10, -1 );    
     delay(150);
 
@@ -301,6 +309,7 @@ void Wander()
   }
   else if ((wander_state == REV) && (x < RIGHT && x > LEFT && y < TOP && y > BOTTOM))
   {
+    if (state == RETURN) Serial.println("REV wander");
     //---- stop
     Straight( 0, 0 );    
 
@@ -309,7 +318,7 @@ void Wander()
       if (theta <= 0.0 && theta >= -PIE_O2)
       {
         //---- turn left 90
-        leds.setColorRGB(0, 0, 0, 100);
+        // leds.setColorRGB(0, 0, 0, 100);
         TurnLeft90();
         //---- update robot config (theta)
         theta  = fmod(theta + PIE_O2, PIE2);
@@ -318,19 +327,19 @@ void Wander()
       else
       {
         //---- turn right 90
-        leds.setColorRGB(0, 0, 0, 100);
+        // leds.setColorRGB(0, 0, 0, 100);
         TurnRight90();
         //---- update robot config (theta)
         theta  = fmod(theta - PIE_O2, PIE2);
         delay(100);      
       }
     }
-    else if (state == RETURN)
+    else
     {
       if (theta <= 0.0 && theta >= -PIE_O2)
       {
         //---- turn right 90
-        leds.setColorRGB(0, 0, 0, 100);
+        // leds.setColorRGB(0, 0, 0, 100);
         TurnRight90();
         //---- update robot config (theta)
         theta  = fmod(theta - PIE_O2, PIE2);
@@ -339,7 +348,7 @@ void Wander()
       else
       {
         //---- turn left 90
-        leds.setColorRGB(0, 0, 0, 100);
+        // leds.setColorRGB(0, 0, 0, 100);
         TurnLeft90();
         //---- update robot config (theta)
         theta  = fmod(theta + PIE_O2, PIE2);
@@ -348,11 +357,15 @@ void Wander()
     }    
 
     //---- go straight
-    leds.setColorRGB(0, 0, 100, 0);  // green
+    // leds.setColorRGB(0, 0, 100, 0);  // green
     Straight( 10, 1 );   
 
     //---- update state
     wander_state = FWD;    
+  }
+  else
+  {
+    if (state == RETURN) Serial.println("ERROR");
   }
 }
 
